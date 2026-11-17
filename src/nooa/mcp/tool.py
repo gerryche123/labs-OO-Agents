@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import httpx
-from mcp.types import PaginatedRequestParams
+from mcp.types import ImageContent, PaginatedRequestParams
 
 from .client import create_mcp_client
 from .oauth import handle_mcp_oauth
@@ -790,6 +790,27 @@ class MCPTool:
                 details = json.dumps(structured, default=str)
             raise MCPToolError(self._server_name, tool_name, details)
 
+        # MCP images are CodeAct attachments, not base64 text for the model to print.
+        # Capture every occurrence before returning a structured or textual result.
+        from nooa.runtime.media_capture import is_media_capture_active
+
+        capture_active = is_media_capture_active()
+        content_blocks = getattr(result, "content", None) or []
+        remaining_content = []
+        for content in content_blocks:
+            if capture_active and isinstance(content, ImageContent):
+                from nooa.media import Image
+                from nooa.runtime.media_capture import show
+
+                show(
+                    Image.from_url(
+                        f"data:{content.mimeType};base64,{content.data}",
+                        media_type=content.mimeType,
+                    )
+                )
+            else:
+                remaining_content.append(content)
+
         if isinstance(structured, dict) and not (
             self._may_wrap_text(tool_name) and _wraps_text(structured, result)
         ):
@@ -803,11 +824,17 @@ class MCPTool:
                 )
             return structured
 
-        if hasattr(result, "content") and result.content:
-            for content in result.content:
-                if hasattr(content, "text"):
-                    return content.text
-            return result.content
+        if content_blocks:
+            if not capture_active:
+                for content in content_blocks:
+                    if hasattr(content, "text"):
+                        return content.text
+                return content_blocks
+            if all(
+                isinstance(getattr(content, "text", None), str) for content in remaining_content
+            ):
+                return "\n".join(content.text for content in remaining_content)
+            return remaining_content
 
         return result
 

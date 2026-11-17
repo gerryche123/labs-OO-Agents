@@ -65,6 +65,11 @@ _media_buffer_var: contextvars.ContextVar[_MediaBuffer | None] = contextvars.Con
 )
 
 
+def is_media_capture_active() -> bool:
+    """Whether media can be attached to the current CodeAct execution."""
+    return _media_buffer_var.get() is not None
+
+
 @contextlib.contextmanager
 def capture_media(
     buffer: _MediaBuffer | None = None, *, max_attachments: int = 100
