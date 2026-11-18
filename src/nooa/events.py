@@ -148,6 +148,13 @@ class TextOnlyReply(EventBase):  # type: ignore[misc]
         str,
         Field(description="Handler action: 'return_result', 'retry', or 'tool_calls'"),
     ] = ""
+    response_event_id: str | None = Field(
+        default=None, description="Exact native LLMResponse event that triggered this handler."
+    )
+    return_accepted: bool = Field(default=False, description="Return validation and postconditions succeeded.")
+    returned_response_text: bool = Field(
+        default=False, description="The validated return retains the built-in handler's original text object."
+    )
     consecutive_text_only: Annotated[
         int, Field(description="Count of consecutive text-only turns including this one")
     ] = 0

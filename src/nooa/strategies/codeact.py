@@ -1397,9 +1397,10 @@ Standard Python builtins and agent instance (`self`) are available."""
                     # Capture the drift faithfully for /bug reports. The original
                     # LLMResponse remains the assistant turn; the handler may only
                     # append recovery events after it.
-                    runtime.event_manager.add(
+                    text_reply_tag = runtime.event_manager.add(
                         TextOnlyReply(
                             content=_text,
+                            response_event_id=str(response.id),
                             finish_reason=str(response.finish_reason),
                             handler=_handler_name(self.on_text_only),
                             action=action.kind,
@@ -1423,6 +1424,16 @@ Standard Python builtins and agent instance (`self`) are available."""
                             call,
                         )
                         if validation_error is None:
+                            runtime.event_manager.update(
+                                text_reply_tag,
+                                return_accepted=True,
+                                returned_response_text=(
+                                    self.on_text_only is return_text_as_result
+                                    and isinstance(validated, str)
+                                    and validated is action.value
+                                    and action.value is context.content
+                                ),
+                            )
                             turn_state.success = True
                             turn_state.is_final = True
                             self._sync_session_locals(call, session)
